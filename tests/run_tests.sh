@@ -18,10 +18,12 @@ for nbfile in $(ls notebooks); do
         echo "Notebook ${test_nbfile} has a non-empty diff!"
         diff "${comparison_nbfile}" "${test_nbfile}"
         mv .comparison-notebooks/*.ipynb notebooks
+        rm -r .comparison-notebooks
         exit 1
     fi
 done
 
 # Move back all the notebooks
 mv .comparison-notebooks/*.ipynb notebooks
+rm -r .comparison-notebooks
 echo "All notebooks passed tests."
