@@ -3,44 +3,19 @@
 import json
 import os
 import re
-import shutil
 import sys
 from pathlib import Path
-from textwrap import dedent
-from typing import Iterator, Mapping, Optional, Sequence, Set, Tuple
+from typing import Iterator, Mapping, Optional, Sequence
 
 from nb_strip_paths.cmdline import CLIArgs
 from nb_strip_paths.find_root import find_project_root
-from nb_strip_paths.text import BOLD, RESET
 
-BASE_ERROR_MESSAGE = dedent(
-    f"""\
-    {BOLD}{{}}
-    Please report a bug at https://github.com/bdice/nb-strip-paths/nbQA/issues {RESET}
-    """
-)
-MIN_VERSIONS = {"isort": "5.3.0"}
-VIRTUAL_ENVIRONMENTS_URL = (
-    "https://realpython.com/python-virtual-environments-a-primer/"
-)
 EXCLUDES = (
     r"/("
     r"\.direnv|\.eggs|\.git|\.hg|\.ipynb_checkpoints|\.mypy_cache|\.nox|\.svn|\.tox|\.venv|"
     r"_build|buck-out|build|dist|venv"
     r")/"
 )
-
-
-class UnsupportedPackageVersionError(Exception):
-    """Raise if installed module is older than minimum required version."""
-
-    def __init__(self, command: str, current_version: str, min_version: str) -> None:
-        """Initialise with command, current version, and minimum version."""
-        self.msg = (
-            f"{BOLD}nbqa only works with {command} >= {min_version}, "
-            f"while you have {current_version} installed.{RESET}"
-        )
-        super().__init__(self.msg)
 
 
 def _get_notebooks(root_dir: str) -> Iterator[Path]:
@@ -116,172 +91,6 @@ def _get_all_notebooks(
     return _filter_by_include_exclude(
         (j for i in root_dirs for j in _get_notebooks(i)), include, exclude
     )
-
-
-def _temp_python_file_for_notebook(
-    notebook: Path, tmpdir: str, project_root: Path
-) -> Path:
-    """
-    Get temporary file to save converted notebook into.
-
-    Parameters
-    ----------
-    notebook
-        Notebook that third-party tool will be run on.
-    tmpdir
-        Temporary directory where converted notebooks will be saved.
-    project_root
-        Root of repository, where .git / .hg / .nbqa.ini file is.
-
-    Returns
-    -------
-    Path
-        Temporary Python file whose location mirrors that of the notebook, but
-        inside the temporary directory.
-
-    Raises
-    ------
-    FileNotFoundError
-        If notebook doesn't exist.
-    """
-    if not notebook.exists():
-        raise FileNotFoundError(
-            f"{BOLD}No such file or directory: {str(notebook)}{RESET}"
-        )
-    relative_notebook_path = (
-        notebook.resolve().relative_to(project_root).with_suffix(".py")
-    )
-    temp_python_file = Path(tmpdir) / relative_notebook_path
-    temp_python_file.parent.mkdir(parents=True, exist_ok=True)
-    return temp_python_file
-
-
-def _replace_temp_python_file_references_in_out_err(
-    tmpdirname: str,
-    temp_python_file: Path,
-    notebook: Path,
-    out: str,
-    err: str,
-) -> Tuple[str, str]:
-    """
-    Replace references to temporary Python file with references to notebook.
-
-    Parameters
-    ----------
-    tmpdirname
-        Temporary directory used for converting notebooks to python files
-    temp_python_file
-        Temporary Python file where notebook was converted to.
-    notebook
-        Original Jupyter notebook.
-    out
-        Captured stdout from third-party tool.
-    err
-        Captured stderr from third-party tool.
-
-    Returns
-    -------
-    out
-        Stdout with temporary directory replaced by current working directory.
-    err
-        Stderr with temporary directory replaced by current working directory.
-    """
-    # 1. Relative path is used because some tools like pylint always report only
-    # the relative path of the file(relative to project root),
-    # though absolute path was passed as the input.
-    # 2. This `resolve()` part is necessary to handle cases when the path used
-    # is a symlink as well as no normalize the path.
-    # I couldn't reproduce this locally, but during CI, on the Windows job, I found
-    # that VSSADM~1 was changing into VssAdministrator.
-    paths = (
-        str(path)
-        for path in [
-            temp_python_file,
-            temp_python_file.resolve(),
-            temp_python_file.relative_to(tmpdirname),
-        ]
-    )
-
-    notebook_path = str(notebook)
-    for path in paths:
-        out = out.replace(path, notebook_path)
-        err = err.replace(path, notebook_path)
-
-    return out, err
-
-
-def _create_blank_init_files(
-    notebook: Path, tmpdirname: str, project_root: Path
-) -> None:
-    """
-    Replicate local (possibly blank) __init__ files to temporary directory.
-
-    Parameters
-    ----------
-    notebook
-        Notebook third-party tool is being run against.
-    tmpdirname
-        Temporary directory to store converted notebooks in.
-    project_root
-        Root of repository, where .git / .hg / .nbqa.ini file is.
-    """
-    parts = notebook.resolve().relative_to(project_root).parts
-
-    for idx in range(1, len(parts)):
-        init_files = Path(os.path.join(*parts[:idx])).glob("__init__.py")
-        for init_file in init_files:
-            Path(tmpdirname).joinpath(init_file).parent.mkdir(
-                parents=True, exist_ok=True
-            )
-            Path(tmpdirname).joinpath(init_file).touch()
-            break  # Only need to copy one __init__ file.
-
-
-def _preserve_config_files(
-    config_files: Sequence[str], tmpdirname: str, project_root: Path
-) -> None:
-    """
-    Copy local config file to temporary directory.
-
-    Parameters
-    ----------
-    config_files
-        Config files for third-party tool (e.g. mypy).
-    tmpdirname
-        Temporary directory to store converted notebooks in.
-    project_root
-        Root of repository, where .git / .hg / .nbqa.ini file is.
-    """
-    for config_file in config_files:
-        config_file_path = project_root / config_file
-        if config_file_path.exists():
-            target_location = Path(tmpdirname) / config_file_path.resolve().relative_to(
-                project_root
-            )
-            target_location.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(
-                str(config_file_path),
-                str(target_location),
-            )
-
-
-def _get_mtimes(arg: Path) -> Set[float]:
-    """
-    Get the modification times of any converted notebooks.
-
-    Parameters
-    ----------
-    arg
-        Notebook or directory to run 3rd party tool on.
-
-    Returns
-    -------
-    Set
-        Modification times of any converted notebooks.
-    """
-    if not arg.is_dir():
-        return {os.path.getmtime(str(arg))}
-    return {os.path.getmtime(str(i)) for i in arg.rglob("*.py")}
 
 
 def _strip_paths(notebook_json: Mapping, project_root: Path):
