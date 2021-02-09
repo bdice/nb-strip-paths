@@ -1,7 +1,7 @@
-- id: nb-strip-user-paths
-  name: nb-strip-user-paths
-  description: "Replace user paths in Jupyter Notebook cell outputs with relative paths."
-  entry: nb-strip-user-paths
+- id: nb-strip-paths
+  name: nb-strip-paths
+  description: "Replace absolute user paths in Jupyter Notebook cell outputs with project relative paths."
+  entry: nb-strip-paths
   language: python
   language_version: python3
   require_serial: true
