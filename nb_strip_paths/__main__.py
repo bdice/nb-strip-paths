@@ -102,7 +102,7 @@ def _strip_paths(notebook_json: Mapping, project_root: Path):
     for cell in notebook_json["cells"]:
         if cell["cell_type"] == "code":
             for output in cell["outputs"]:
-                for line_number, line in enumerate(output["text"]):
+                for line_number, line in enumerate(output.get("text", [])):
                     if project_root_string in line:
                         output["text"][line_number] = line.replace(
                             project_root_string, ""
