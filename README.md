@@ -14,6 +14,17 @@ Created for use with [signac-examples](https://github.com/glotzerlab/signac-exam
 
 Much of this project's code is copied from *nbqa* under the MIT license. [nbqa](https://github.com/nbQA-dev/nbQA/tree/master/nbqa) is a wonderful tool for using Python linters/formatters with Jupyter notebooks, and I strongly recommend trying it!
 
+## Usage
+
+Add this snippet to `.pre-commit-config.yaml`:
+
+```yaml
+  - repo: https://github.com/bdice/nb-strip-paths
+    rev: 'v0.1.0'
+    hooks:
+      - id: nb-strip-paths
+```
+
 ## Tests
 
 The tests require [nbconvert](https://github.com/jupyter/nbconvert) and [nbstripout](https://github.com/kynan/nbstripout).
