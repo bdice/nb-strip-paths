@@ -12,7 +12,7 @@ some_directory/file.txt
 This makes cleaner (and safer) examples for projects with tutorials that deal with filesystems and must print absolute paths.
 Created for use with [signac-examples](https://github.com/glotzerlab/signac-examples).
 
-This project's code is copied from *nbqa* under the MIT license. [nbqa](https://github.com/nbQA-dev/nbQA/tree/master/nbqa) is a wonderful tool for using Python linters/formatters with Jupyter notebooks, and I strongly recommend trying it!
+Much of this project's code is copied from *nbqa* under the MIT license. [nbqa](https://github.com/nbQA-dev/nbQA/tree/master/nbqa) is a wonderful tool for using Python linters/formatters with Jupyter notebooks, and I strongly recommend trying it!
 
 ## Tests
 
